@@ -96,5 +96,5 @@ The application follows modern Android development practices and uses Firebase s
 
 1. Clone the repository:
    ```bash
-   git clone https://github.com/piyussh-22/Android-bmiCalculator.git
+   git clone https://github.com/piyussh-22/Android-BmiCalculator.git
 
