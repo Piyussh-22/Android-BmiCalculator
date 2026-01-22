@@ -6,12 +6,14 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
+import androidx.compose.material3.Divider
 
 @Composable
 fun AuthScreen(
     onLoginClick: (String, String) -> Unit,
     onRegisterClick: (String, String) -> Unit,
-    onForgotPasswordClick: (String) -> Unit
+    onForgotPasswordClick: (String) -> Unit,
+    onGoogleLoginClick: () -> Unit
 ) {
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
@@ -69,5 +71,22 @@ fun AuthScreen(
         ) {
             Text("Forgot Password?")
         }
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        Divider(
+            modifier = Modifier.fillMaxWidth(),
+            thickness = 1.dp
+        )
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        Button(
+            onClick = onGoogleLoginClick,
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Text("Sign in with Google")
+        }
+
     }
 }
