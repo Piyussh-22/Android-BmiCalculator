@@ -55,4 +55,6 @@ dependencies {
     debugImplementation(libs.androidx.compose.ui.tooling)
     debugImplementation(libs.androidx.compose.ui.test.manifest)
     implementation(platform("com.google.firebase:firebase-bom:34.8.0"))
+    // Firebase Authentication
+    implementation("com.google.firebase:firebase-auth-ktx:23.1.0")
 }
