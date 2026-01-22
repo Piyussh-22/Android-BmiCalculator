@@ -34,9 +34,7 @@ fun AuthScreen(
             label = { Text("Email") },
             modifier = Modifier.fillMaxWidth()
         )
-
         Spacer(modifier = Modifier.height(8.dp))
-
         OutlinedTextField(
             value = password,
             onValueChange = { password = it },
@@ -78,15 +76,12 @@ fun AuthScreen(
             modifier = Modifier.fillMaxWidth(),
             thickness = 1.dp
         )
-
         Spacer(modifier = Modifier.height(16.dp))
-
         Button(
             onClick = onGoogleLoginClick,
             modifier = Modifier.fillMaxWidth()
         ) {
             Text("Sign in with Google")
         }
-
     }
 }

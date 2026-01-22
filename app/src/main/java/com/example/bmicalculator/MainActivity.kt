@@ -21,6 +21,7 @@ import com.google.android.gms.auth.api.signin.GoogleSignIn
 import com.google.android.gms.auth.api.signin.GoogleSignInOptions
 import com.google.firebase.auth.GoogleAuthProvider
 import androidx.activity.compose.rememberLauncherForActivityResult
+import com.google.firebase.firestore.FirebaseFirestore
 
 class MainActivity : ComponentActivity() {
 
@@ -32,6 +33,7 @@ class MainActivity : ComponentActivity() {
             BMICalculatorTheme {
                 val context = LocalContext.current
                 val auth = FirebaseAuth.getInstance()
+                val db = FirebaseFirestore.getInstance()
                 var isLoggedIn by remember {
                     mutableStateOf(auth.currentUser != null)
                 }
@@ -74,6 +76,8 @@ class MainActivity : ComponentActivity() {
                     if (isLoggedIn) {
                         BmiScreen(
                             userEmail = auth.currentUser?.email ?: "",
+                            userId = auth.currentUser!!.uid,
+                            db = db,
                             onLogoutClick = {
                                 googleSignInClient.signOut()
                                 auth.signOut()
