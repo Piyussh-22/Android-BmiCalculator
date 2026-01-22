@@ -26,12 +26,14 @@ fun BmiScreen(
     Column(
         modifier = Modifier
             .fillMaxSize()
+            // Handles proper spacing for system status bar
             .statusBarsPadding()
+            // Allows scrolling for smaller screens
             .verticalScroll(rememberScrollState())
             .padding(horizontal = 16.dp, vertical = 12.dp)
     ) {
 
-        // Header
+        // Header section showing user info and logout
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween
@@ -41,12 +43,14 @@ fun BmiScreen(
                     text = "Welcome",
                     style = MaterialTheme.typography.titleMedium
                 )
+                // Display logged-in user's email
                 Text(
                     text = userEmail,
                     style = MaterialTheme.typography.bodySmall
                 )
             }
 
+            // Logout button
             Button(onClick = onLogoutClick) {
                 Text("Logout")
             }
@@ -54,7 +58,7 @@ fun BmiScreen(
 
         Spacer(modifier = Modifier.height(24.dp))
 
-        // BMI Card
+        // Main BMI calculator card
         Card(
             modifier = Modifier.fillMaxWidth(),
             elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
@@ -67,6 +71,7 @@ fun BmiScreen(
 
                 Spacer(modifier = Modifier.height(12.dp))
 
+                // BMI calculation and history section
                 BmiCalculator(
                     userId = userId,
                     db = db
@@ -82,29 +87,34 @@ fun BmiCalculator(
     db: FirebaseFirestore,
     modifier: Modifier = Modifier
 ) {
+    // State for unit selection and input fields
     val weightUnit = remember { mutableStateOf("kg") }
     val heightUnit = remember { mutableStateOf("cm") }
     val weight = remember { mutableStateOf("") }
     val height = remember { mutableStateOf("") }
     val gender = remember { mutableStateOf("Male") }
+
+    // State for BMI result and history
     val bmiResult = remember { mutableStateOf("") }
     val bmiHistory = remember { mutableStateOf(listOf<String>()) }
 
-    // Load saved data
+    // Load saved user data from Firestore
     LaunchedEffect(userId) {
         db.collection("users")
             .document(userId)
             .get()
             .addOnSuccessListener { doc ->
                 if (doc.exists()) {
+                    // Restore previously saved values
                     doc.getDouble("weight")?.let { weight.value = it.toString() }
                     doc.getDouble("heightCm")?.let { height.value = it.toString() }
                     doc.getString("gender")?.let { gender.value = it }
+
+                    // Load BMI history only once to avoid overwriting UI state
                     if (bmiHistory.value.isEmpty()) {
                         bmiHistory.value =
                             doc.get("bmiHistory") as? List<String> ?: emptyList()
                     }
-
                 }
             }
     }
@@ -118,7 +128,7 @@ fun BmiCalculator(
 
         Spacer(modifier = Modifier.height(12.dp))
 
-        // Weight
+        // Weight input
         OutlinedTextField(
             value = weight.value,
             onValueChange = { weight.value = it },
@@ -126,6 +136,7 @@ fun BmiCalculator(
             modifier = Modifier.fillMaxWidth()
         )
 
+        // Weight unit selection
         Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
             RadioButton(
                 selected = weightUnit.value == "kg",
@@ -142,7 +153,7 @@ fun BmiCalculator(
 
         Spacer(modifier = Modifier.height(12.dp))
 
-        // Height
+        // Height input
         OutlinedTextField(
             value = height.value,
             onValueChange = { height.value = it },
@@ -150,6 +161,7 @@ fun BmiCalculator(
             modifier = Modifier.fillMaxWidth()
         )
 
+        // Height unit selection
         Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
             RadioButton(
                 selected = heightUnit.value == "cm",
@@ -166,7 +178,7 @@ fun BmiCalculator(
 
         Spacer(modifier = Modifier.height(12.dp))
 
-        // Gender
+        // Gender selection
         Text("Gender", style = MaterialTheme.typography.labelLarge)
 
         Row {
@@ -185,24 +197,28 @@ fun BmiCalculator(
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        // Calculate Button
+        // BMI calculation button
         Button(
             onClick = {
                 val w = weight.value.toFloatOrNull()
                 val h = height.value.toFloatOrNull()
 
+                // Validate numeric input
                 if (w == null || h == null) {
                     bmiResult.value = "Please enter valid numbers"
                     return@Button
                 }
 
+                // Convert units to kg and cm if required
                 val weightKg =
                     if (weightUnit.value == "lbs") w * 0.45359237f else w
                 val heightCm =
                     if (heightUnit.value == "inch") h * 2.54f else h
 
+                // BMI formula calculation
                 val bmi = weightKg / ((heightCm / 100) * (heightCm / 100))
 
+                // Determine BMI category
                 val category = when {
                     bmi < 18.5 -> "Underweight"
                     bmi < 24.9 -> "Normal"
@@ -210,13 +226,17 @@ fun BmiCalculator(
                     else -> "Obese"
                 }
 
+                // Prepare history entry
                 val entry = "BMI ${String.format("%.2f", bmi)} - $category"
                 val userRef = db.collection("users").document(userId)
 
+                // Keep only the last 5 BMI records
                 val newHistory = (listOf(entry) + bmiHistory.value).take(5)
 
+                // Update UI immediately
                 bmiHistory.value = newHistory
 
+                // Save updated data to Firestore
                 userRef.set(
                     mapOf(
                         "weight" to weightKg,
@@ -227,7 +247,7 @@ fun BmiCalculator(
                     com.google.firebase.firestore.SetOptions.merge()
                 )
 
-
+                // Display BMI result
                 bmiResult.value =
                     "BMI: ${String.format("%.2f", bmi)}\nCategory: $category"
             },
@@ -236,7 +256,7 @@ fun BmiCalculator(
             Text("Calculate BMI")
         }
 
-        // Result
+        // BMI result display
         if (bmiResult.value.isNotEmpty()) {
             Spacer(modifier = Modifier.height(12.dp))
             Card(
@@ -252,6 +272,8 @@ fun BmiCalculator(
         }
 
         Spacer(modifier = Modifier.height(16.dp))
+
+        // Show graph only if enough data points exist
         if (bmiHistory.value.size < 2) {
             Card(
                 modifier = Modifier.fillMaxWidth(),
@@ -274,8 +296,7 @@ fun BmiCalculator(
 
         Spacer(modifier = Modifier.height(16.dp))
 
-
-        // History
+        // BMI history list
         if (bmiHistory.value.isNotEmpty()) {
             Spacer(modifier = Modifier.height(20.dp))
             Card(
@@ -291,9 +312,10 @@ fun BmiCalculator(
                         style = MaterialTheme.typography.titleSmall,
                         textAlign = androidx.compose.ui.text.style.TextAlign.Center
                     )
+
                     Spacer(modifier = Modifier.height(12.dp))
 
-                    // Header row
+                    // Table header
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween
@@ -314,18 +336,15 @@ fun BmiCalculator(
 
                     Spacer(modifier = Modifier.height(8.dp))
 
-                    // Data rows
+                    // Display BMI history rows
                     bmiHistory.value.forEach { item ->
-
-                        // item example: "BMI 23.45 - Normal"
                         val parts = item.split("-")
 
-                        val bmiText = parts.getOrNull(0)?.replace("BMI", "")?.trim() ?: ""
+                        val bmiText =
+                            parts.getOrNull(0)?.replace("BMI", "")?.trim() ?: ""
                         val categoryText = parts.getOrNull(1)?.trim() ?: ""
 
-                        Row(
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
+                        Row(modifier = Modifier.fillMaxWidth()) {
                             Text(
                                 text = bmiText,
                                 modifier = Modifier.weight(1f),
@@ -351,13 +370,13 @@ fun BmiCalculator(
 @Composable
 fun BmiLineChart(bmiHistory: List<String>) {
 
-    // MPAndroidChart crashes with < 2 points
+    // Prevent chart crash when data points are insufficient
     if (bmiHistory.size < 2) return
 
     val entries = mutableListOf<Entry>()
 
+    // Convert BMI history into chart entries
     bmiHistory.forEach { item ->
-        // Expected: "BMI 23.45 - Normal"
         val parts = item.split("-")
         if (parts.size < 2) return@forEach
 
@@ -367,12 +386,12 @@ fun BmiLineChart(bmiHistory: List<String>) {
             .toFloatOrNull()
             ?: return@forEach
 
-
         entries.add(Entry(entries.size.toFloat(), bmiValue))
     }
 
     if (entries.size < 2) return
 
+    // Render line chart using MPAndroidChart
     AndroidView(
         modifier = Modifier
             .fillMaxWidth()
@@ -398,5 +417,3 @@ fun BmiLineChart(bmiHistory: List<String>) {
         }
     )
 }
-
-
