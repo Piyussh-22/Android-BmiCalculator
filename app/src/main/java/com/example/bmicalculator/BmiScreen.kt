@@ -10,7 +10,11 @@ import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 
-
+import androidx.compose.ui.viewinterop.AndroidView
+import com.github.mikephil.charting.charts.LineChart
+import com.github.mikephil.charting.data.Entry
+import com.github.mikephil.charting.data.LineData
+import com.github.mikephil.charting.data.LineDataSet
 
 @Composable
 fun BmiScreen(
@@ -96,8 +100,11 @@ fun BmiCalculator(
                     doc.getDouble("weight")?.let { weight.value = it.toString() }
                     doc.getDouble("heightCm")?.let { height.value = it.toString() }
                     doc.getString("gender")?.let { gender.value = it }
-                    bmiHistory.value =
-                        doc.get("bmiHistory") as? List<String> ?: emptyList()
+                    if (bmiHistory.value.isEmpty()) {
+                        bmiHistory.value =
+                            doc.get("bmiHistory") as? List<String> ?: emptyList()
+                    }
+
                 }
             }
     }
@@ -204,29 +211,22 @@ fun BmiCalculator(
                 }
 
                 val entry = "BMI ${String.format("%.2f", bmi)} - $category"
+                val userRef = db.collection("users").document(userId)
 
-                db.collection("users")
-                    .document(userId)
-                    .get()
-                    .addOnSuccessListener { doc ->
-                        val old =
-                            doc.get("bmiHistory") as? List<String> ?: emptyList()
-                        val updated = listOf(entry) + old
-                        val trimmed = updated.take(5)
+                val newHistory = (listOf(entry) + bmiHistory.value).take(5)
 
-                        db.collection("users")
-                            .document(userId)
-                            .set(
-                                mapOf(
-                                    "weight" to weightKg,
-                                    "heightCm" to heightCm,
-                                    "gender" to gender.value,
-                                    "bmiHistory" to trimmed
-                                )
-                            )
+                bmiHistory.value = newHistory
 
-                        bmiHistory.value = trimmed
-                    }
+                userRef.set(
+                    mapOf(
+                        "weight" to weightKg,
+                        "heightCm" to heightCm,
+                        "gender" to gender.value,
+                        "bmiHistory" to newHistory
+                    ),
+                    com.google.firebase.firestore.SetOptions.merge()
+                )
+
 
                 bmiResult.value =
                     "BMI: ${String.format("%.2f", bmi)}\nCategory: $category"
@@ -250,6 +250,30 @@ fun BmiCalculator(
                 )
             }
         }
+
+        Spacer(modifier = Modifier.height(16.dp))
+        if (bmiHistory.value.size < 2) {
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.surfaceVariant
+                )
+            ) {
+                Text(
+                    text = "Add at least 2 BMI entries to view the graph",
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(12.dp),
+                    textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                    style = MaterialTheme.typography.bodyMedium
+                )
+            }
+        } else {
+            BmiLineChart(bmiHistory.value)
+        }
+
+        Spacer(modifier = Modifier.height(16.dp))
+
 
         // History
         if (bmiHistory.value.isNotEmpty()) {
@@ -323,3 +347,56 @@ fun BmiCalculator(
         }
     }
 }
+
+@Composable
+fun BmiLineChart(bmiHistory: List<String>) {
+
+    // MPAndroidChart crashes with < 2 points
+    if (bmiHistory.size < 2) return
+
+    val entries = mutableListOf<Entry>()
+
+    bmiHistory.forEach { item ->
+        // Expected: "BMI 23.45 - Normal"
+        val parts = item.split("-")
+        if (parts.size < 2) return@forEach
+
+        val bmiValue = parts[0]
+            .replace("BMI", "")
+            .trim()
+            .toFloatOrNull()
+            ?: return@forEach
+
+
+        entries.add(Entry(entries.size.toFloat(), bmiValue))
+    }
+
+    if (entries.size < 2) return
+
+    AndroidView(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(220.dp),
+        factory = { context ->
+            LineChart(context).apply {
+                description.isEnabled = false
+                axisRight.isEnabled = false
+                xAxis.granularity = 1f
+                xAxis.setDrawGridLines(false)
+                axisLeft.setDrawGridLines(true)
+            }
+        },
+        update = { chart ->
+            val dataSet = LineDataSet(entries, "BMI Trend").apply {
+                lineWidth = 2f
+                setDrawCircles(true)
+                setDrawValues(false)
+            }
+
+            chart.data = LineData(dataSet)
+            chart.invalidate()
+        }
+    )
+}
+
+
